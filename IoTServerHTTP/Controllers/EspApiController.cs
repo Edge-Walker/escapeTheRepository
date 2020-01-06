@@ -30,16 +30,22 @@ namespace aspnetapp.Controllers
         [HttpPut()]
         public IActionResult PutCardData([FromBody] CardReaderData readerData)
         {
-            Console.Write($"Card was read from {readerData.sender}: {readerData.cardData}");
-            /*-String response = "Message from server: Hello, " + 
+            Console.Write($"Card was read from {readerData.sender}: ");
+            for(int k = 0; k <= 3; k ++) {
+                Console.Write("{readerData.cardData}[k]");
+            }
+
+            Console.Write('\n');
+
+            String response = "Message from server: Hello, " + 
             readerData.sender + ". Your card was: " + 
             readerData.cardData[0] + ", " + 
             readerData.cardData[1] + ", " + 
             readerData.cardData[2] + ", " + 
             readerData.cardData[3] + ", right?";
-            return Ok(response);-*/
+            return Ok(response);
 
-            return Ok(0x0f1466);
+            // return Ok(0x0f1466);
         }
 
         [HttpGet]

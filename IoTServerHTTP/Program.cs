@@ -17,9 +17,14 @@ namespace IoTServerHTTP
             CreateWebHostBuilder(args).Build().Run();
         }
 
+        // For some reason, the address below has to match EXACTLY the address you type into
+        // the browser. For instance, if you use localhost, you CANNOT get to the server by
+        // typing the external IP address of the machine into a browser.
+        //
+        // To expose the server to our IoT devices, you must use the IP address of the server.
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
-                .UseUrls("http://192.168.1.13:5001")
+                .UseUrls("http://192.168.2.110:5001")
                 .UseStartup<Startup>();
     }
 }

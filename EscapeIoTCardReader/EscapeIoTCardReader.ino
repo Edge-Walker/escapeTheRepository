@@ -10,6 +10,8 @@
 
 // Card reader module
 #include <MFRC522.h>
+#define serverIpAddress "192.168.2.110"
+#define serverPort 5001
 
 /*
 //  Card Reader / Transmitter Control
@@ -22,20 +24,20 @@
 
 // WS2801 LED Control
 const int lightDataPin = D8;
-const int numLights = 8;
-Adafruit_NeoPixel lights = Adafruit_NeoPixel(numLights, lightDataPin);
+const int numLights = 6;
+Adafruit_NeoPixel lights = Adafruit_NeoPixel(numLights, lightDataPin, NEO_GRB + NEO_KHZ800);
 
 // WiFi credentials
-const char* ssid = "LegendaryHouse24";
-const char* password = "we don't give that out";
+const char* ssid = "IncredibleHouse24";
+const char* password = "ravens, rooks, crows, jackdaws";
 
 // Debug by sending text over serial?
 const bool debugSerial = true;
 
 // Card reader pins
-const int RST_PIN = D0;
-const int SS_PIN = D1;
-const int IRQ_PIN = D2;
+const int RST_PIN = D2;
+const int SS_PIN = D3;
+const int IRQ_PIN = D4;
 // On the HiLetgo ESP8266 WiFi Board, SPI pins
 // are not labeled with SPI names. 
 // These are the hardware SPI pins:
@@ -85,7 +87,7 @@ void setup() {
   }
   
   if(debugSerial){
-    Serial.begin(115200);
+    Serial.begin(9600);
   }
   SPI.begin();
   rfid.PCD_Init();
@@ -112,8 +114,6 @@ void setup() {
 
 // Wait until a card is read, then send the card data to the server
 void loop() {
-  
-  
   
   // Look for new cards
   if (!rfid.PICC_IsNewCardPresent()) return;
@@ -164,7 +164,7 @@ void sendCardData(byte NUID[4]) {
   Serial.println("Sending card data via WiFi");
   HTTPClient http;
 
-  http.begin("192.168.1.13", 5001, "/EspApi/PutCardData/");
+  http.begin(serverIpAddress, serverPort, "/EspApi/PutCardData/");
   http.addHeader("Content-Type", "application/json");
 
   char buffer[256];
@@ -181,9 +181,7 @@ void sendCardData(byte NUID[4]) {
     int value = response.toInt();
     Serial.println(value, HEX);
     setAllLights(value);
-    Serial.println(response);
-    
-
+    Serial.println(response);   
   } else {
     Serial.print("Error on sending PUT Request: ");
     Serial.println(httpResponseCode);
