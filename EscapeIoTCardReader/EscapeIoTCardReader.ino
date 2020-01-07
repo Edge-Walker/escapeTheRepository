@@ -169,7 +169,7 @@ void sendCardData(byte NUID[4]) {
 
   char buffer[256];
 
-  // Data is sent in JSON format and intelligently parsed by the server in to object field data
+  // Data is sent in JSON format and  parsed by the server into object field data
   sprintf(buffer, "{sender: \"Card Reader 1\", cardData: [%d, %d, %d, %d]}", NUID[0], NUID[1], NUID[2], NUID[3]);
   Serial.print("Sending: ");
   Serial.println(buffer);
@@ -194,5 +194,6 @@ void setAllLights(int color) {
   for(int k = 0; k < numLights; k++) {
     lights.setPixelColor(k, color);
   }
-    lights.show();  
+  
+  lights.show();  
 }
