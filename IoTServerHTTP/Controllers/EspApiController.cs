@@ -4,12 +4,25 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace aspnetapp.Controllers
 {
     public class EspApiController : Controller
-    {
+    {        
+        private readonly ILogger _logger;
+        private String response;
+
+        public EspApiController(ILogger<EspApiController> logger) {
+            _logger = logger;
+        }
+
         string mystr = "__UNSET__";
+
+        // Create an array of colors so that they can be chosen
+        // at random using integers.
+        Array colors = Enum.GetValues(typeof(NeoPixelColor));
+        Random random = new Random();
 
         [HttpGet]
         public IActionResult Index()
@@ -34,18 +47,13 @@ namespace aspnetapp.Controllers
             for(int k = 0; k <= 3; k ++) {
                 Console.Write("{readerData.cardData}[k]");
             }
-
-            Console.Write('\n');
-
-            String response = "Message from server: Hello, " + 
-            readerData.sender + ". Your card was: " + 
-            readerData.cardData[0] + ", " + 
-            readerData.cardData[1] + ", " + 
-            readerData.cardData[2] + ", " + 
-            readerData.cardData[3] + ", right?";
+            
+            for(int k = 0; k < 6; k++) {
+                NeoPixelColor randomColor = (NeoPixelColor)colors.GetValue(random.Next(colors.Length));
+                response += ((int)randomColor).ToString("X6");
+            }
+            
             return Ok(response);
-
-            // return Ok(0x0f1466);
         }
 
         [HttpGet]

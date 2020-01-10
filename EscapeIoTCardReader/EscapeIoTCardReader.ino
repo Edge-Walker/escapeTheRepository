@@ -13,15 +13,6 @@
 #define serverIpAddress "192.168.2.110"
 #define serverPort 5001
 
-/*
-//  Card Reader / Transmitter Control
-//  Configures a 
-//  
-//  
-//  
-//  
-*/
-
 // WS2801 LED Control
 const int lightDataPin = D8;
 const int numLights = 6;
@@ -50,7 +41,13 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 MFRC522::MIFARE_Key key;
 byte cardNUID[4];
 
+// For tracking time since last card poll
+unsigned long lastCardPoll;
+
 void setup() {
+  // Initialize timekeeping
+  lastCardPoll = millis();
+	
   // Initialize lights
   lights.begin();
   lights.show();
@@ -113,8 +110,15 @@ void setup() {
 }
 
 // Wait until a card is read, then send the card data to the server
-void loop() {
-  
+void loop() {	
+	if((millis() - lastCardPoll) > 1000) {
+		pollForCard();
+	}  
+}
+
+
+void pollForCard() {
+	
   // Look for new cards
   if (!rfid.PICC_IsNewCardPresent()) return;
 
@@ -155,7 +159,6 @@ void loop() {
   } else {
     Serial.println("Error in WiFi connection");
   }
-  delay(2000);
 }
 
 // Send card data to the server
@@ -180,7 +183,7 @@ void sendCardData(byte NUID[4]) {
     const String response = http.getString();
     int value = response.toInt();
     Serial.println(value, HEX);
-    setAllLights(value);
+    setAllLightsToSame(value);
     Serial.println(response);   
   } else {
     Serial.print("Error on sending PUT Request: ");
@@ -190,7 +193,7 @@ void sendCardData(byte NUID[4]) {
   http.end();
 }
 
-void setAllLights(int color) {
+void setAllLightsToSame(int color) {
   for(int k = 0; k < numLights; k++) {
     lights.setPixelColor(k, color);
   }
