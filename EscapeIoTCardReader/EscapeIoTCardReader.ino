@@ -282,25 +282,31 @@ void lightstripDiag() {
   // Light strip diagnostic 
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 128, 128, 128);
+	_lights.show();
+	delay(100);	
   }
     
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 128, 0, 0);
+	_lights.show();
     delay(100);    
   }
   
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 0, 128, 0);
+	_lights.show();
     delay(100);
   }
   
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 0, 0, 128);
+	_lights.show();
     delay(100);
   }
 
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 0, 0, 0);
+	_lights.show();
     delay(100);
   }
 }
