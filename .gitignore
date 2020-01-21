@@ -330,3 +330,4 @@ ASALocalRun/
 .mfractor/
 IoTServerHTTP/.vscode/c_cpp_properties.json
 EscapeIoTCardReader/.vscode/c_cpp_properties.json
+/EscapeIoTCardReader/.vscode
