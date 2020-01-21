@@ -328,3 +328,4 @@ ASALocalRun/
 
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
+IoTServerHTTP/.vscode/c_cpp_properties.json
