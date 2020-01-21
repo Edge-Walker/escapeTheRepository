@@ -331,3 +331,8 @@ ASALocalRun/
 IoTServerHTTP/.vscode/c_cpp_properties.json
 EscapeIoTCardReader/.vscode/c_cpp_properties.json
 /EscapeIoTCardReader/.vscode
+/IoTServerHTTP/.vscode
+/IoTServerHTTP/.vscode/arduino.json
+/IoTServerHTTP/.vscode/c_cpp_properties.json
+/IoTServerHTTP/.vscode/launch.json
+/IoTServerHTTP/.vscode/tasks.json
