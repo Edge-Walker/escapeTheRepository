@@ -1,7 +1,7 @@
 #include <Adafruit_NeoPixel.h>
 
 // Settings
-#define DATA_PIN       D8
+#define DATA_PIN       9
 #define NUMPIXELS      6
 #define DELAY          1
  

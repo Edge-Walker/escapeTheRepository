@@ -1,6 +1,18 @@
+/* ===================================
+
+TO DO: 
+Use IRQ pin instead of polling reader (saves battery, flops)
+
+Add support for server to select a method and provide arguments
+
+Add EEPROM read/write support
+
+Add RFID card data read/write support
+=====================================*/
+
+
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
-#include <EEPROM.h>
 
 // Standard SPI
 #include <SPI.h>
@@ -22,7 +34,7 @@
 #define serverPort 5001
 
 // WS2812B LED Control
-#define  lightDataPin D8
+#define  lightDataPin 9 // Labeled "SD2" on board
 #define  numLights 6
 
 //  ----------------------
@@ -67,8 +79,6 @@ unsigned long _time;
 unsigned long _lastCardPoll;
 
 void setup() {
-  // Initialize EEPROM
-  EEPROM.begin(512);
 
   // Initialize lights
   _lights.begin();
@@ -288,19 +298,4 @@ void lightstripDiag() {
 	_lights.show();
     delay(100);
   }
-}
-
-void saveColorData(int lightNum, unsigned long color) {
-  if(lightNum > numLights) {
-    return;
-  }
-  EEPROM.write(lightNum * 32, color); 
-
-  // TODO
-}
-
-uint16_t getColorData(int lightNum) {
-  EEPROM.read(lightNum * 32);
-
-  // TODO
 }
