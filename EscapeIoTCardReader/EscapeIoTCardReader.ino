@@ -34,7 +34,7 @@ Add RFID card data read/write support
 #define serverPort 5001
 
 // WS2812B LED Control
-#define  lightDataPin 9 // Labeled "SD2" on board
+#define  lightDataPin D1
 #define  numLights 6
 
 //  ----------------------
@@ -42,7 +42,7 @@ Add RFID card data read/write support
 Adafruit_NeoPixel _lights = Adafruit_NeoPixel(numLights, lightDataPin, NEO_GRB + NEO_KHZ800);
 
 // WiFi credentials
-const char* _ssid = "IncredibleHouse24";
+const char* _ssid = "Corvids";
 const char* _password = "ravens, rooks, crows, jackdaws";
 
 // Debug by sending text over serial?
@@ -55,24 +55,15 @@ const int _interruptPin = D4;
 // On the HiLetgo ESP8266 WiFi Board, SPI pins
 // are not labeled with SPI names. 
 // These are the hardware SPI pins:
+// CLK pin = D5
 // MISO pin = D6
 // MOSI pin = D7
-// CLK pin = D5
+
 
 // Card reader
 MFRC522 _rfid(_selectPin, _resetPin);
 MFRC522::MIFARE_Key _key;
 byte _cardNUID[4];
-
-// Tracks the current unadjusted base color for each LED
-// Used to create effects without throwing away current color
-uint8_t _red[numLights];
-uint8_t _green[numLights];
-uint8_t _blue[numLights];
-
-// Tracks the current frame for breathing LED effect
-// so that each light can be on a different frame
-unsigned long _sineFrame[numLights];
 
 // Used to track time
 unsigned long _time;
@@ -90,21 +81,35 @@ void setup() {
     Serial.begin(9600);
   }
   SPI.begin();
-  _rfid.PCD_Init();
+  
+  /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
+     would try to act as both a client and an access-point and could cause
+     network-issues with your other WiFi-devices on your WiFi-network. */
+  WiFi.mode(WIFI_STA);
 
-  // Initialize card key
-  for (byte i = 0; i < 6; i++) {
-    _key.keyByte[i] = 0xFF;
-  }
 
   WiFi.begin(_ssid, _password);
 
-  while (WiFi.status() != WL_CONNECTED) {
+
+  // Try to connect, but after ten failures, assume we are
+  // just charging and sleep.
+
+  int retries = 10;
+  while ((WiFi.status() != WL_CONNECTED) && retries > 0) {
     delay(1000);
       if(debugSerial){
         Serial.println("Connecting to WiFi..");
       }
+      retries--;
   }
+
+  if(retries == 0) {
+    doPanic();
+    while(true) {
+      delay(9999999);
+    }
+  }
+  
   if(debugSerial){
     Serial.println("Connected to the WiFi network");
   }
@@ -112,6 +117,13 @@ void setup() {
   lightstripDiag();
 
   Serial.println("Waiting for card");
+
+  _rfid.PCD_Init();
+
+  // Initialize card key
+  for (byte i = 0; i < 6; i++) {
+    _key.keyByte[i] = 0xFF;
+  }
 }
 
 
@@ -146,7 +158,11 @@ void pollForCard() {
     return;
   }
 
-  Serial.println("Read a card.");
+  
+
+  // Flash lights so we know something has been read.
+  flashLights(100);
+  // Serial.println("Read a card.");
 
   // Store NUID into nuidPICC array
   for (byte i = 0; i < 4; i++) {
@@ -181,26 +197,32 @@ void sendCardData(byte NUID[4]) {
   http.addHeader("Content-Type", "application/json");
 
   char buffer[256];
-
+  
   // Data is sent in JSON format and  parsed by the server into object field data
-  sprintf(buffer, "{sender: \"Cinnamon\", cardData: [%d, %d, %d, %d]}", NUID[0], NUID[1], NUID[2], NUID[3]);
-  Serial.print("Sending: ");
-  Serial.println(buffer);
+  sprintf(buffer, "{senderID: \"Sender ID\", cardData: [%d, %d, %d, %d], senderMacAddr:\"NOTSET\"}", NUID[0], NUID[1], NUID[2], NUID[3]);
+  String myString = String("{senderID: \"") + 
+    ESP.getChipId() +
+    String("\", cardData: [") +
+    String(NUID[0], DEC) + ", " + 
+    String(NUID[1], DEC) + ", " + 
+    String(NUID[2], DEC) + ", " +  
+    String(NUID[3], DEC) +
+    String("], senderMacAddr:\"") + 
+    WiFi.macAddress() + 
+    String("\"}");
+    
+  Serial.println(myString);
+  //Serial.print("Sending: ");
+ // Serial.println(buffer);
 
-  int httpResponseCode = http.PUT(buffer);
+  int httpResponseCode = http.PUT(myString);
 
   if (httpResponseCode > 0) {
     const String response = http.getString();
-    
+    Serial.println("Server response:");
     Serial.println(response);
-
-    // Flash lights so we know something has been read.
-    flashLights(15);
-    
+  
     setEachLight(response);
-    
-    Serial.print("PUT response code: ");
-    Serial.println(response);   
   } else {
     Serial.print("Error on sending PUT Request: ");
     Serial.println(httpResponseCode);
@@ -230,11 +252,17 @@ void doPanic() {
     flashLights(50);
     for (int i = 0; i < numLights; i ++) {
       setAllLights(0xFF0000);
-      delay(200);
+      delay(20);
     }
   }
+
+  setAllLights(0x000000);
 }
 
+
+// Accepts a string containing 36 hex digits.
+// Splits the string into 6 sets of 6 digits each,
+// and treats each as a color to assign to a different light.
 void setEachLight(String str) {
   // Make sure the string is long enough to address every light
   if(6 * (numLights) > str.length()) {
@@ -251,14 +279,14 @@ void setEachLight(String str) {
   
     String colorStr = str.substring(startIndex, startIndex + 6);
     
-    Serial.print("Color string is ");
-    Serial.println(colorStr);    
+    // Serial.print("Color string is ");
+    // Serial.println(colorStr);    
     
     colorStr.toCharArray(buffer,8);    
     color = strtoul(buffer, NULL, 16);
 
-    Serial.print("Parsed color integer: ");
-    Serial.println(color, HEX);
+    // Serial.print("Parsed color integer: ");
+    // Serial.println(color, HEX);
     
     _lights.setPixelColor(i, color);
   }
@@ -271,31 +299,31 @@ void lightstripDiag() {
   // Light strip diagnostic 
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 128, 128, 128);
-	_lights.show();
-	delay(100);	
+  	_lights.show();
+	  delay(50);	
   }
     
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 128, 0, 0);
-	_lights.show();
-    delay(100);    
+  	_lights.show();
+    delay(50);    
   }
   
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 0, 128, 0);
-	_lights.show();
-    delay(100);
+  	_lights.show();
+    delay(50);
   }
   
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 0, 0, 128);
-	_lights.show();
-    delay(100);
+  	_lights.show();
+    delay(50);
   }
 
   for(int k = 0; k < numLights; k++){
     _lights.setPixelColor(k, 0, 0, 0);
-	_lights.show();
-    delay(100);
+	 _lights.show();
+    delay(50);
   }
 }

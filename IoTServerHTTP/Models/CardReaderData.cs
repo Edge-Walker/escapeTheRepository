@@ -1,4 +1,5 @@
 public class CardReaderData {
-    public string sender {get; set;}
+    public string senderID {get; set;}
     public int[] cardData {get; set;}
+    public string senderMacAddr {get; set;}
 }
