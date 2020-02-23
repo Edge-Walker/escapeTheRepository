@@ -35,11 +35,11 @@ Add RFID card data read/write support
 
 // WS2812B LED Control
 #define  lightDataPin D1
-#define  numLights 6
+#define  _numLights 6
 
 //  ----------------------
 
-Adafruit_NeoPixel _lights = Adafruit_NeoPixel(numLights, lightDataPin, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel _lights = Adafruit_NeoPixel(_numLights, lightDataPin, NEO_GRB + NEO_KHZ800);
 
 // WiFi credentials
 const char* _ssid = "Corvids";
@@ -75,7 +75,7 @@ void setup() {
   _lights.begin();
   _lights.show();
 
-  lightstripDiag();
+  lightstripDiag(_numLights);
   
   if(debugSerial){
     Serial.begin(9600);
@@ -104,7 +104,7 @@ void setup() {
   }
 
   if(retries == 0) {
-    doPanic();
+    doPanic(_numLights);
     while(true) {
       delay(9999999);
     }
@@ -114,7 +114,7 @@ void setup() {
     Serial.println("Connected to the WiFi network");
   }
 
-  lightstripDiag();
+  lightstripDiag(_numLights);
 
   Serial.println("Waiting for card");
 
@@ -200,7 +200,7 @@ void sendCardData(byte NUID[4]) {
   
   // Data is sent in JSON format and  parsed by the server into object field data
   sprintf(buffer, "{senderID: \"Sender ID\", cardData: [%d, %d, %d, %d], senderMacAddr:\"NOTSET\"}", NUID[0], NUID[1], NUID[2], NUID[3]);
-  String myString = String("{senderID: \"") + 
+  String message = String("{senderID: \"") + 
     ESP.getChipId() +
     String("\", cardData: [") +
     String(NUID[0], DEC) + ", " + 
@@ -211,18 +211,18 @@ void sendCardData(byte NUID[4]) {
     WiFi.macAddress() + 
     String("\"}");
     
-  Serial.println(myString);
+  Serial.println(message);
   //Serial.print("Sending: ");
  // Serial.println(buffer);
 
-  int httpResponseCode = http.PUT(myString);
+  int httpResponseCode = http.PUT(message);
 
   if (httpResponseCode > 0) {
     const String response = http.getString();
     Serial.println("Server response:");
     Serial.println(response);
   
-    setEachLight(response);
+    setEachLight(response, _numLights);
   } else {
     Serial.print("Error on sending PUT Request: ");
     Serial.println(httpResponseCode);
@@ -239,7 +239,7 @@ void flashLights(int duration) {
 }
 
 void setAllLights(int color) {
-  for(int k = 0; k < numLights; k++) {
+  for(int k = 0; k < _numLights; k++) {
     _lights.setPixelColor(k, color);
   }
   
@@ -247,7 +247,7 @@ void setAllLights(int color) {
 }
 
 // Indicate an unintended state has been reached.
-void doPanic() {
+void doPanic(int numLights) {
   for(int k = 0; k < 10; k++) {
     flashLights(50);
     for (int i = 0; i < numLights; i ++) {
@@ -260,13 +260,13 @@ void doPanic() {
 }
 
 
-// Accepts a string containing 36 hex digits.
-// Splits the string into 6 sets of 6 digits each,
+// Accepts a string containing hex digits.
+// Splits the string into sets of 6 digits each,
 // and treats each as a color to assign to a different light.
-void setEachLight(String str) {
+void setEachLight(String str, int numLights) {
   // Make sure the string is long enough to address every light
   if(6 * (numLights) > str.length()) {
-    doPanic();
+    doPanic(_numLights);
     Serial.print("String length too short.");
     Serial.println(str.length());
   }
@@ -294,7 +294,7 @@ void setEachLight(String str) {
   _lights.show();
 }
 
-void lightstripDiag() {
+void lightstripDiag(int numLights) {
   
   // Light strip diagnostic 
   for(int k = 0; k < numLights; k++){

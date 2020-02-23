@@ -21,7 +21,7 @@ namespace aspnetapp.Controllers
 
         // Create an array of colors so that they can be chosen
         // at random using integers.
-        Array colors = Enum.GetValues(typeof(NeoPixelColor));
+        List<NeoPixelColor> colors = Enum.GetValues(typeof(NeoPixelColor)).Cast<NeoPixelColor>().ToList();
         
         Random random = new Random();
 
@@ -46,16 +46,18 @@ namespace aspnetapp.Controllers
         [HttpPut()]
         public IActionResult PutCardData([FromBody] CardReaderData readerData)
         {
+            response = "";
+
             Console.Write($"Card was read from {readerData.senderID}: ");
             for(int k = 0; k <= 3; k ++) {
                 Console.Write("{readerData.cardData}[k]");
             }
-            
-            NeoPixelColor[] randomColors = colors.OrderBy(x => random.Next()).ToArray();
+
+            var randomColors = colors.OrderBy(x => random.Next());
 
             
             for(int k = 0; k < 6; k++) {
-                NeoPixelColor randomColor = (NeoPixelColor)colors.GetValue(random.Next(colors.Length));
+                NeoPixelColor randomColor = (NeoPixelColor)randomColors.ElementAt(k);
                 response += ((int)randomColor).ToString("X6");
             }
             
