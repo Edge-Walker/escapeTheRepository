@@ -336,3 +336,6 @@ EscapeIoTCardReader/.vscode/c_cpp_properties.json
 /IoTServerHTTP/.vscode/c_cpp_properties.json
 /IoTServerHTTP/.vscode/launch.json
 /IoTServerHTTP/.vscode/tasks.json
+
+# MacOS files
+.DS_Store

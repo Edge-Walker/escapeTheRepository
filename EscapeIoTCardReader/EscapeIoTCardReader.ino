@@ -30,7 +30,7 @@ Add RFID card data read/write support
 // CONFIGURATION ----------------------
 
 // Server Settings
-#define serverIpAddress "192.168.2.110"
+#define serverIpAddress "192.168.2.1"
 #define serverPort 5001
 
 // WS2812B LED Control
@@ -42,8 +42,8 @@ Add RFID card data read/write support
 Adafruit_NeoPixel _lights = Adafruit_NeoPixel(_numLights, lightDataPin, NEO_GRB + NEO_KHZ800);
 
 // WiFi credentials
-const char* _ssid = "Corvids";
-const char* _password = "ravens, rooks, crows, jackdaws";
+const char* _ssid = "EscapeTheWiFi";
+const char* _password = "HexSpecsTreks";
 
 // Debug by sending text over serial?
 const bool debugSerial = true;
@@ -68,6 +68,7 @@ byte _cardNUID[4];
 // Used to track time
 unsigned long _time;
 unsigned long _lastCardPoll;
+bool _cardPresent = false;
 
 void setup() {
 
@@ -132,10 +133,28 @@ void setup() {
 void loop() {
   _time = millis();
   if(_time - _lastCardPoll > 1000) {
-    pollForCard();
+    if (_cardPresent) {
+      checkForNoCard();
+    }
+    else {
+      pollForCard();
+    }
   }
   
   delay(10);  
+}
+
+void checkForNoCard() {
+  byte buffer[4];
+  byte bufferSize = 4;
+  if (_rfid.PICC_WakeupA(buffer, &bufferSize) == MFRC522::STATUS_OK) {
+    _rfid.PICC_HaltA();
+    return;
+  }
+
+  _cardPresent = false;
+  setAllLights(0x000000);
+  // Telling the server isn't super important right now
 }
 
 void pollForCard() {
@@ -162,6 +181,7 @@ void pollForCard() {
 
   // Flash lights so we know something has been read.
   flashLights(100);
+  _cardPresent = true;
   // Serial.println("Read a card.");
 
   // Store NUID into nuidPICC array
