@@ -24,7 +24,7 @@ namespace IoTServerHTTP
         // To expose the server to our IoT devices, you must use the IP address of the server.
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
-                .UseUrls("http://192.168.2.110:5001")
+                .UseUrls("http://192.168.2.1:5001")
                 .UseStartup<Startup>();
     }
 }
