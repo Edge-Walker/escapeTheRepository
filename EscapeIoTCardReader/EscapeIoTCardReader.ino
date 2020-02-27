@@ -13,6 +13,7 @@ Add RFID card data read/write support
 
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
+#include <EEPROM.h>
 
 // Standard SPI
 #include <SPI.h>
@@ -40,6 +41,13 @@ Add RFID card data read/write support
 //  ----------------------
 
 Adafruit_NeoPixel _lights = Adafruit_NeoPixel(_numLights, lightDataPin, NEO_GRB + NEO_KHZ800);
+byte _lightValues[_numLights * 3];
+byte _lightTargets[_numLights * 3];
+byte _lightBases[_numLights * 3];
+bool _lightValuesAnim = false;
+int _flashingMode = 0;
+#define FLASH_SPEED 80
+int _flashPositions[3] = { 0, FLASH_SPEED / 2, FLASH_SPEED };
 
 // WiFi credentials
 const char* _ssid = "EscapeTheWiFi";
@@ -64,11 +72,16 @@ const int _interruptPin = D4;
 MFRC522 _rfid(_selectPin, _resetPin);
 MFRC522::MIFARE_Key _key;
 byte _cardNUID[4];
+byte _cardEMPTY[4] = { 0, 0, 0, 0 };
 
 // Used to track time
 unsigned long _time;
 unsigned long _lastCardPoll;
 bool _cardPresent = false;
+bool _halfPollRepeat = false;
+
+// Server-assigned position, but retained if we reboot so we don't have to re-setup mid-escape
+int serverId = 0;
 
 void setup() {
 
@@ -125,6 +138,12 @@ void setup() {
   for (byte i = 0; i < 6; i++) {
     _key.keyByte[i] = 0xFF;
   }
+
+  // Server-assigned EEPROM-stored id
+  EEPROM.begin(16); // We only use one byte; 16 is generous thinking ahead!
+  serverId = EEPROM.read(0);
+  Serial.print("Server-assigned ID at startup: ");
+  Serial.println(serverId);
 }
 
 
@@ -132,16 +151,21 @@ void setup() {
 // Wait until a card is read, then send the card data to the server
 void loop() {
   _time = millis();
-  if(_time - _lastCardPoll > 1000) {
+  if(_time - _lastCardPoll > 400) { // wait 400ms before reading after a successful change in state
     if (_cardPresent) {
       checkForNoCard();
     }
-    else {
+    // Don't bother looking for a new RFID if the old one hasn't been removed after a full-success
+    if (_flashingMode == 0) {
       pollForCard();
     }
+    _lastCardPoll = _time - 100; // Poll about every 300ms
   }
   
-  delay(10);  
+  delay(2);
+  if (_lightValuesAnim) {
+    lightFlicker(_numLights);
+  }
 }
 
 void checkForNoCard() {
@@ -153,13 +177,25 @@ void checkForNoCard() {
   }
 
   _cardPresent = false;
-  setAllLights(0x000000);
-  // Telling the server isn't super important right now
+  setAllLights(0, 0, 0, true);
+
+  // Send WiFi data
+  sendCardData(_cardEMPTY, true, true);
+  _lastCardPoll = _time;
 }
 
 void pollForCard() {
   // Look for new cards
-  if (!_rfid.PICC_IsNewCardPresent()) return;
+  if (!_rfid.PICC_IsNewCardPresent()) {
+    // If card present, refresh (poll server) for victory condition, but half as often
+    if (_cardPresent) {
+      if (_halfPollRepeat) {
+        sendCardData(_cardNUID, false, true);
+      }
+      _halfPollRepeat = !_halfPollRepeat;
+    }
+    return;
+  }
 
   // Verify if the NUID has been read
   if (!_rfid.PICC_ReadCardSerial()) return;
@@ -179,8 +215,6 @@ void pollForCard() {
 
   
 
-  // Flash lights so we know something has been read.
-  flashLights(100);
   _cardPresent = true;
   // Serial.println("Read a card.");
 
@@ -197,19 +231,25 @@ void pollForCard() {
   // Stop encryption on PCD
   _rfid.PCD_StopCrypto1();
 
-  Serial.println("Sending card data");
-  if (WiFi.status() == WL_CONNECTED) {
-    sendCardData(_cardNUID);
-  } else {
-    Serial.println("Error in WiFi connection");
-  }
+  // Send WiFi data
+  sendCardData(_cardNUID, false, false);
+  _lastCardPoll = _time;
 }
 
 
 
 // Send card data to the server
 // Print out a debug message on serial port
-void sendCardData(byte NUID[4]) {
+void sendCardData(byte NUID[4], bool ignoreResponse, bool ignoreError) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Error in WiFi connection");
+    // Flash lights so we know there's an error
+    if (!ignoreError) {
+      doPanic(_numLights);
+    }
+    return;
+  }
+  
   Serial.println("Sending card data via WiFi");
   HTTPClient http;
 
@@ -220,9 +260,9 @@ void sendCardData(byte NUID[4]) {
   
   // Data is sent in JSON format and  parsed by the server into object field data
   sprintf(buffer, "{senderID: \"Sender ID\", cardData: [%d, %d, %d, %d], senderMacAddr:\"NOTSET\"}", NUID[0], NUID[1], NUID[2], NUID[3]);
-  String message = String("{senderID: \"") + 
-    ESP.getChipId() +
-    String("\", cardData: [") +
+  String message = String("{senderID: ") + 
+    serverId +
+    String(", cardData: [") +
     String(NUID[0], DEC) + ", " + 
     String(NUID[1], DEC) + ", " + 
     String(NUID[2], DEC) + ", " +  
@@ -239,31 +279,51 @@ void sendCardData(byte NUID[4]) {
 
   if (httpResponseCode > 0) {
     const String response = http.getString();
+    http.end();
     Serial.println("Server response:");
+    Serial.println(httpResponseCode);
     Serial.println(response);
   
-    setEachLight(response, _numLights);
+    if (!ignoreResponse) {
+      setEachLight(response, _numLights);
+    }
   } else {
+    http.end();
     Serial.print("Error on sending PUT Request: ");
     Serial.println(httpResponseCode);
+    // Flash lights so we know there's an error
+    if (!ignoreError) {
+      doPanic(_numLights);
+    }
   }
-
-  http.end();
 }
 
 void flashLights(int duration) {
-    setAllLights(0x000000);
-    delay(duration);
-    setAllLights(0xFFFFFF);
-    delay(duration);
+  setAllLights(0, 0, 0, false);
+  delay(duration);
+  setAllLights(255, 255, 255, false);
+  delay(duration);
 }
 
-void setAllLights(int color) {
+void setAllLights(byte red, byte green, byte blue, bool smooth) {
   for(int k = 0; k < _numLights; k++) {
-    _lights.setPixelColor(k, color);
+    if (!smooth) {
+      _lights.setPixelColor(k, red, green, blue);
+      _lightValues[k*3] = red;
+      _lightValues[k*3+1] = green;
+      _lightValues[k*3+2] = blue;
+    }
+    _lightBases[k*3] = red;
+    _lightBases[k*3+1] = green;
+    _lightBases[k*3+2] = blue;
+    _lightTargets[k*3] = red;
+    _lightTargets[k*3+1] = green;
+    _lightTargets[k*3+2] = blue;
   }
   
-  _lights.show();  
+  _lights.show();
+  _lightValuesAnim = smooth;
+  _flashingMode = 0;
 }
 
 // Indicate an unintended state has been reached.
@@ -271,18 +331,20 @@ void doPanic(int numLights) {
   for(int k = 0; k < 10; k++) {
     flashLights(50);
     for (int i = 0; i < numLights; i ++) {
-      setAllLights(0xFF0000);
+      setAllLights(255, 0, 0, false);
       delay(20);
     }
   }
 
-  setAllLights(0x000000);
+  setAllLights(0, 0, 0, false);
 }
 
 
 // Accepts a string containing hex digits.
 // Splits the string into sets of 6 digits each,
 // and treats each as a color to assign to a different light.
+// If present, another digit represents mode to flash lights indicating some sort of success.
+// If present, a final set of 2 digits is used to assign serverId.
 void setEachLight(String str, int numLights) {
   // Make sure the string is long enough to address every light
   if(6 * (numLights) > str.length()) {
@@ -291,26 +353,117 @@ void setEachLight(String str, int numLights) {
     Serial.println(str.length());
   }
   
-  for(int i = 0; i < numLights; i++) {
+  char buffer[8];
+  for(int i = 0; i < numLights * 3; i++) {
     
-    char buffer[8];
-    int startIndex = i * 6;
+    int startIndex = i * 2;
     unsigned long color;
   
-    String colorStr = str.substring(startIndex, startIndex + 6);
-    
-    // Serial.print("Color string is ");
-    // Serial.println(colorStr);    
+    String colorStr = str.substring(startIndex, startIndex + 2);
     
     colorStr.toCharArray(buffer,8);    
     color = strtoul(buffer, NULL, 16);
 
-    // Serial.print("Parsed color integer: ");
-    // Serial.println(color, HEX);
-    
-    _lights.setPixelColor(i, color);
+    if (color != _lightBases[i]) {
+      _lightBases[i] = color;
+      _lightTargets[i] = color;
+    }
+  }
+  _lightValuesAnim = true;
+  lightFlicker(numLights);
+
+  int flashModeIndex = numLights * 6;
+  if (str.length() > flashModeIndex) {
+    String modeStr = str.substring(flashModeIndex, flashModeIndex + 1);
+    modeStr.toCharArray(buffer,8);    
+    unsigned long newMode = strtoul(buffer, NULL, 16);
+    _flashingMode = newMode;
+  }
+  
+  int serverIdIndex = numLights * 6 + 1;
+  if (str.length() > serverIdIndex + 1) {
+    String idStr = str.substring(serverIdIndex, serverIdIndex + 2);
+    idStr.toCharArray(buffer,8);    
+    unsigned long newId = strtoul(buffer, NULL, 16);
+    if (newId != serverId) {
+      Serial.print("Setting server ID to: ");
+      Serial.println(newId);
+      serverId = newId;
+      EEPROM.write(0, serverId);
+      if (EEPROM.commit()) {
+        Serial.println("EEPROM successfully committed");
+      } else {
+        Serial.println("ERROR! EEPROM commit failed");
+      }
+    }
+  }
+}
+
+void lightFlicker(int numLights) {
+  for (int i = 0; i < numLights * 3; i += 3) {
+    bool done = true;
+    for (int j = i; j < i + 3; ++j) {
+      if (_lightValues[j] < _lightTargets[j]) {
+        ++_lightValues[j];
+        done = false;
+      }
+      else if (_lightValues[j] > _lightTargets[j]) {
+        --_lightValues[j];
+        done = false;
+      }
+    }
+    if (done) {
+      // range of target- 25% to 100%
+      int range = random(25, 100);
+      for (int j = i; j < i + 3; ++j) {
+        _lightTargets[j] = _lightBases[j] * range / 100;
+      }
+    }
   }
 
+  int _flashPercent = 0;
+  if (_flashingMode > 0) {
+    // Flashing mode 1: Rotate white light 50% 100% 50% around the circle
+    for (int x = 0; x < 3; ++x) {
+      ++_flashPositions[x];
+      if (_flashPositions[x] >= numLights * FLASH_SPEED) {
+        _flashPositions[x] = 0;
+      }
+    }
+    // Flashing mode 2: All lights pulse 0 to 100 and back to 0
+    if (_flashingMode == 2) {
+      // Just convert the first position to a range of -100 thru 100 and absolute value it
+      _flashPercent = _flashPositions[0] * 200 / (numLights * FLASH_SPEED);
+      _flashPercent = _flashPercent - 100;
+      if (_flashPercent < 0) _flashPercent = -_flashPercent;
+    }
+  }
+  for(int i = 0; i < numLights; i++) {
+    // Currently: mode 1 flashes to white, mode 2 to a dark red
+    int flashTowardsA = _flashingMode == 1 ? 255 : 128;
+    int flashTowardsB = _flashingMode == 1 ? 255 : 0;
+    
+    if (_flashingMode == 1 && i == (_flashPositions[1] / FLASH_SPEED)) {
+      _lights.setPixelColor(i, flashTowardsA, flashTowardsB, flashTowardsB);
+    }
+    else if (_flashingMode == 1 && (i == (_flashPositions[0] / FLASH_SPEED) || i == (_flashPositions[2] / FLASH_SPEED))) {
+      _lights.setPixelColor(i, 
+        (_lightValues[i * 3] + flashTowardsA) / 2,
+        (_lightValues[i * 3 + 1] + flashTowardsB) / 2,
+        (_lightValues[i * 3 + 2] + flashTowardsB) / 2
+        );
+    }
+    else if (_flashingMode == 2) {
+      _lights.setPixelColor(i, 
+        _lightValues[i * 3] + (flashTowardsA - _lightValues[i * 3]) * _flashPercent / 100,
+        _lightValues[i * 3 + 1] + (flashTowardsB - _lightValues[i * 3 + 1]) * _flashPercent / 100,
+        _lightValues[i * 3 + 2] + (flashTowardsB - _lightValues[i * 3 + 2]) * _flashPercent / 100
+        );
+    }
+    else {
+      _lights.setPixelColor(i, _lightValues[i * 3], _lightValues[i * 3 + 1], _lightValues[i * 3 + 2]);
+    }
+  }
   _lights.show();
 }
 
@@ -342,8 +495,20 @@ void lightstripDiag(int numLights) {
   }
 
   for(int k = 0; k < numLights; k++){
+    _lightValues[k*3] = 0;
+    _lightValues[k*3+1] = 0;
+    _lightValues[k*3+2] = 0;
+    _lightBases[k*3] = 0;
+    _lightBases[k*3+1] = 0;
+    _lightBases[k*3+2] = 0;
+    _lightTargets[k*3] = 0;
+    _lightTargets[k*3+1] = 0;
+    _lightTargets[k*3+2] = 0;
     _lights.setPixelColor(k, 0, 0, 0);
-	 _lights.show();
+	  _lights.show();
     delay(50);
   }
+  
+  _lightValuesAnim = false;
+  _flashingMode = 0;
 }

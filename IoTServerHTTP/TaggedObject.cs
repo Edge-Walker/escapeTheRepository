@@ -64,13 +64,22 @@ public class TaggedObject {
         NeoPixelColor.Red, NeoPixelColor.White, NeoPixelColor.White, NeoPixelColor.Red, NeoPixelColor.White, NeoPixelColor.White);
     static public TaggedObject AMULET = new TaggedObject(71, 218, 136, 245, NeoPixelColor.Brown, NeoPixelColor.Yellow);
 
+    static public TaggedObject DEBUG_A = new TaggedObject(61, 193, 24, 211, 
+        NeoPixelColor.Aqua, NeoPixelColor.Pink, NeoPixelColor.White, NeoPixelColor.Pink, NeoPixelColor.Aqua, NeoPixelColor.White);
+    static public TaggedObject DEBUG_B = new TaggedObject(86, 147, 203, 131, 
+        NeoPixelColor.Red, NeoPixelColor.Orange, NeoPixelColor.Yellow, NeoPixelColor.Green, NeoPixelColor.Blue, NeoPixelColor.Purple);
+    static public TaggedObject DEBUG_C = new TaggedObject(245, 143, 22, 211, 
+        NeoPixelColor.Pink, NeoPixelColor.Purple, NeoPixelColor.Blue, NeoPixelColor.Blue, NeoPixelColor.Purple, NeoPixelColor.Pink);
+
+    static public TaggedObject EMPTY = new TaggedObject(0, 0, 0, 0, NeoPixelColor.Black, NeoPixelColor.Black);
+
     static private List<TaggedObject> allObjects;
 
     private int[] cardData;
 
     public NeoPixelColor[] colors {get; private set;}
 
-    public TaggedObject(int a, int b, int c, int d, NeoPixelColor color1, NeoPixelColor color2) {
+    private TaggedObject(int a, int b, int c, int d, NeoPixelColor color1, NeoPixelColor color2) {
 
         cardData = new int[4] { a, b, c, d };
         colors = new NeoPixelColor[6] { color1, color2, color1, color2, color1, color2 };
@@ -81,7 +90,7 @@ public class TaggedObject {
         allObjects.Add(this);
     }
 
-    public TaggedObject(int a, int b, int c, int d, 
+    private TaggedObject(int a, int b, int c, int d, 
         NeoPixelColor color1, NeoPixelColor color2, NeoPixelColor color3,
         NeoPixelColor color4, NeoPixelColor color5, NeoPixelColor color6) {
 
