@@ -41,7 +41,13 @@ namespace aspnetapp.Controllers
             }
 
             TaggedObject obj = TaggedObject.FindObject(readerData);
-            string response = PuzzleMaster.Instance.AssignObject(readerData.senderMacAddr, obj);
+            string response;
+            if (obj == null) {
+                response = "FF000000FF000000FFFF000000FF000000FF1";
+            }
+            else {
+                response = PuzzleMaster.Instance.AssignObject(readerData.senderMacAddr, obj);
+            }
 
             if (response == null) {
                 return Error();

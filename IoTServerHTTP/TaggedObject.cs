@@ -32,17 +32,17 @@ public class TaggedObject {
     static public TaggedObject DRAGON_FIRE = new TaggedObject(246, 37, 23, 37, NeoPixelColor.Red, NeoPixelColor.Yellow);
     static public TaggedObject DRAGON_CRYSTAL = new TaggedObject(208, 153, 194, 37, NeoPixelColor.Blue, NeoPixelColor.Aqua);
 
-    static public TaggedObject GEM_YOUTH = new TaggedObject(103, 215, 140, 245, 
+    static public TaggedObject GEM_YOUTH = new TaggedObject(39, 167, 130, 245, 
         NeoPixelColor.Green, NeoPixelColor.Blue, NeoPixelColor.Purple, NeoPixelColor.Red, NeoPixelColor.Purple, NeoPixelColor.Blue);
-    static public TaggedObject GEM_SPRING = new TaggedObject(39, 249, 133, 245, 
+    static public TaggedObject GEM_SPRING = new TaggedObject(55, 221, 131, 245, 
         NeoPixelColor.Blue, NeoPixelColor.Purple, NeoPixelColor.Red, NeoPixelColor.Orange, NeoPixelColor.Red, NeoPixelColor.Purple);
     static public TaggedObject GEM_GOLD = new TaggedObject(199, 166, 130, 245, 
         NeoPixelColor.Purple, NeoPixelColor.Red, NeoPixelColor.Orange, NeoPixelColor.Yellow, NeoPixelColor.Orange, NeoPixelColor.Red);
     static public TaggedObject GEM_LEAD = new TaggedObject(71, 223, 129, 245, 
         NeoPixelColor.Red, NeoPixelColor.Orange, NeoPixelColor.Yellow, NeoPixelColor.Green, NeoPixelColor.Yellow, NeoPixelColor.Orange);
-    static public TaggedObject GEM_ADULT = new TaggedObject(199, 215, 140, 245, 
+    static public TaggedObject GEM_ADULT = new TaggedObject(167, 223, 129, 245, 
         NeoPixelColor.Orange, NeoPixelColor.Yellow, NeoPixelColor.Green, NeoPixelColor.Blue, NeoPixelColor.Green, NeoPixelColor.Yellow);
-    static public TaggedObject GEM_WINTER = new TaggedObject(199, 248, 133, 245, 
+    static public TaggedObject GEM_WINTER = new TaggedObject(135, 221, 131, 245, 
         NeoPixelColor.Yellow, NeoPixelColor.Green, NeoPixelColor.Blue, NeoPixelColor.Purple, NeoPixelColor.Blue, NeoPixelColor.Green);
 
     static public TaggedObject BOTTLE_YELLOW = new TaggedObject(71, 25, 128, 245, NeoPixelColor.Yellow, NeoPixelColor.Yellow);
