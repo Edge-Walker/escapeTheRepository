@@ -14,6 +14,8 @@ namespace IoTServerHTTP
     {
         public static void Main(string[] args)
         {
+            // Force initialization of radio, etc. now
+            PuzzleMaster.Instance.ToString();
             CreateWebHostBuilder(args).Build().Run();
         }
 
@@ -24,7 +26,7 @@ namespace IoTServerHTTP
         // To expose the server to our IoT devices, you must use the IP address of the server.
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
             WebHost.CreateDefaultBuilder(args)
-                .UseUrls("http://192.168.2.1:5001")
+                .UseUrls("http://10.7.32.5:5001")
                 .UseStartup<Startup>();
     }
 }

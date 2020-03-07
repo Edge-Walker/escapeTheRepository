@@ -31,7 +31,7 @@ Add RFID card data read/write support
 // CONFIGURATION ----------------------
 
 // Server Settings
-#define serverIpAddress "192.168.2.1"
+#define serverIpAddress "10.7.32.5"
 #define serverPort 5001
 
 // WS2812B LED Control
@@ -50,8 +50,8 @@ int _flashingMode = 0;
 int _flashPositions[3] = { 0, FLASH_SPEED / 2, FLASH_SPEED };
 
 // WiFi credentials
-const char* _ssid = "EscapeTheWiFi";
-const char* _password = "HexSpecsTreks";
+const char* _ssid = "monavezazizi";
+const char* _password = "curlyrosebud666";
 
 // Debug by sending text over serial?
 const bool debugSerial = true;
