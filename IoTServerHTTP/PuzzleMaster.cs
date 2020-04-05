@@ -1,16 +1,18 @@
 using System.Collections.Generic;
 using System.IO.Ports;
+using System.Collections.Concurrent;
 
 public class PuzzleMaster {
     public const int NUM_READERS = 8;
     private int nextReaderId = 1; // 1-based sequence so "empty value" of 0 is easy to detect as an error
-    private Dictionary<string, int> readerMacs = new Dictionary<string, int>();
+    private ConcurrentDictionary<string, int> readerMacs = new ConcurrentDictionary<string, int>();
     
-    private SerialPort _serialPort;
     private string _portName;
 
     private List<TaggedObject> _readerState;
+    private object _readerStateLock = new object();
     private bool _didWand = false;
+    private PuzzleSolution _lastSolution = null;
 
     static private PuzzleMaster _instance = new PuzzleMaster();
 
@@ -21,7 +23,7 @@ public class PuzzleMaster {
 
         // NOTE: string[] ports = SerialPort.GetPortNames(); to get port names if needed
         string[] ports = SerialPort.GetPortNames();
-        _serialPort = null;
+        SerialPort _serialPort = null;
         foreach (string port in ports) {
             if (port.StartsWith("/dev/tty.usbmodem")) {
                 _portName = port;
@@ -45,8 +47,10 @@ public class PuzzleMaster {
             // Assign next available reader ID
             if (nextReaderId >= 1 && nextReaderId <= NUM_READERS) {
                 readerId = nextReaderId++;
-                readerMacs.Add(readerMac, readerId);
-                _readerState.Add(obj);
+                readerMacs.TryAdd(readerMac, readerId);
+                lock (_readerStateLock) {
+                    _readerState.Add(obj);
+                }
             }
             else {
                 // Error for now
@@ -62,13 +66,21 @@ public class PuzzleMaster {
         // No solution found, by default
         string flashMode = "0";
 
-        // Update puzzle tracking, look for solution
-        TaggedObject oldObj = _readerState[readerId - 1];
-        _readerState[readerId - 1] = obj;
-        PuzzleSolution solution = null;
-        if (nextReaderId > 2) {
+        // Update puzzle tracking
+        List<TaggedObject> stateCopy;
+        TaggedObject  oldObj;
+        lock (_readerStateLock) {
+            oldObj = _readerState[readerId - 1];
+            _readerState[readerId - 1] = obj;
+            stateCopy = new List<TaggedObject>(_readerState);
+        }
+
+        // look for solution
+        PuzzleSolution solution = _lastSolution;
+        if (nextReaderId > 2 && oldObj != obj) {
             // Only look for a solution once at least two of the readers are initialized
-            solution = PuzzleSolution.FindMatchingSolution(_readerState);
+            solution = PuzzleSolution.FindMatchingSolution(stateCopy);
+            _lastSolution = solution;
         }
         if (solution != null) {
             flashMode = solution.flashMode;
@@ -88,7 +100,7 @@ public class PuzzleMaster {
                 }
 
                 // DO A THING
-                _serialPort = new SerialPort();
+                SerialPort _serialPort = new SerialPort();
                 _serialPort.PortName = _portName;
                 _serialPort.BaudRate = 9600;
                 _serialPort.Open();
@@ -99,8 +111,16 @@ public class PuzzleMaster {
         
         // Return colors for object and a (potentially updated) readerId
         string response = "";
-        for (int k = 0; k < 6; ++k) {
-            response += ((int)obj.colors[k]).ToString("X6");
+        if (flashMode == "2") {
+            // Flash mode 2 just red<->white for all
+            for (int k = 0; k < 6; ++k) {
+                response += "FFFFFF";
+            }
+        }
+        else {
+            for (int k = 0; k < 6; ++k) {
+                response += ((int)obj.colors[k]).ToString("X6");
+            }
         }
         response += flashMode;
         response += readerId.ToString("X2");

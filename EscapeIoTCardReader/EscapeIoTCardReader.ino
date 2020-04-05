@@ -78,7 +78,7 @@ byte _cardEMPTY[4] = { 0, 0, 0, 0 };
 unsigned long _time;
 unsigned long _lastCardPoll;
 bool _cardPresent = false;
-bool _halfPollRepeat = false;
+int _halfPollRepeat = 0;
 
 // Server-assigned position, but retained if we reboot so we don't have to re-setup mid-escape
 int serverId = 0;
@@ -151,15 +151,21 @@ void setup() {
 // Wait until a card is read, then send the card data to the server
 void loop() {
   _time = millis();
-  if(_time - _lastCardPoll > 400) { // wait 400ms before reading after a successful change in state
+  if(_time - _lastCardPoll > 200) { // wait 200ms between reads
+    bool stateChanged = false;
     if (_cardPresent) {
-      checkForNoCard();
+      stateChanged = checkForNoCard();
     }
     // Don't bother looking for a new RFID if the old one hasn't been removed after a full-success
-    if (_flashingMode == 0) {
-      pollForCard();
+    if (!stateChanged && _flashingMode == 0) {
+      stateChanged = pollForCard();
     }
-    _lastCardPoll = _time - 100; // Poll about every 300ms
+    if (stateChanged) {
+      _lastCardPoll = _time + 300; // Wait extra 300ms if state changed
+    }
+    else {
+      _lastCardPoll = _time;
+    }
   }
   
   delay(2);
@@ -168,12 +174,12 @@ void loop() {
   }
 }
 
-void checkForNoCard() {
+bool checkForNoCard() {
   byte buffer[4];
   byte bufferSize = 4;
   if (_rfid.PICC_WakeupA(buffer, &bufferSize) == MFRC522::STATUS_OK) {
     _rfid.PICC_HaltA();
-    return;
+    return false;
   }
 
   _cardPresent = false;
@@ -181,24 +187,27 @@ void checkForNoCard() {
 
   // Send WiFi data
   sendCardData(_cardEMPTY, true, true);
-  _lastCardPoll = _time;
+  return true;
 }
 
-void pollForCard() {
+bool pollForCard() {
   // Look for new cards
   if (!_rfid.PICC_IsNewCardPresent()) {
-    // If card present, refresh (poll server) for victory condition, but half as often
+    // If card present, refresh (poll server) for victory condition, but less often
     if (_cardPresent) {
-      if (_halfPollRepeat) {
+      if (_halfPollRepeat == 0) {
         sendCardData(_cardNUID, false, true);
       }
-      _halfPollRepeat = !_halfPollRepeat;
+      // Only refresh once a second (5 x 200ms)
+      if (++_halfPollRepeat >= 5) {
+        _halfPollRepeat = 0;
+      }
     }
-    return;
+    return false;
   }
 
   // Verify if the NUID has been read
-  if (!_rfid.PICC_ReadCardSerial()) return;
+  if (!_rfid.PICC_ReadCardSerial()) return false;
 
   // Serial.print(F("PICC type: "));
   MFRC522::PICC_Type piccType = _rfid.PICC_GetType(_rfid.uid.sak);
@@ -210,7 +219,7 @@ void pollForCard() {
       piccType != MFRC522::PICC_TYPE_MIFARE_1K &&
       piccType != MFRC522::PICC_TYPE_MIFARE_4K) {
     Serial.println(F("Your tag is not of type MIFARE Classic."));
-    return;
+    return false;
   }
 
   
@@ -233,7 +242,7 @@ void pollForCard() {
 
   // Send WiFi data
   sendCardData(_cardNUID, false, false);
-  _lastCardPoll = _time;
+  return true;
 }
 
 
